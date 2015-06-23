@@ -32,8 +32,8 @@ Mortgage and transaction data:	match_trans_mort_matchlong.sas7bdat
 /*   The main steps	*/
 %macro main(yr = &macro_yr, qt = substr("&macro_qt.",2,1));
 *%filter_gse(&yr., &qt.);
-*%filter_mort(&yr., &qt.);
-%match();
+%filter_mort(&yr., &qt.);
+*%match();
 %mend main;
 
 /*****************************/
@@ -142,6 +142,8 @@ run;
 *%step2_0();
 %step2_1();
 %step2_2(&yr, &qt);
+%step2_3(&yr, &qt);
+*%step2_4();
 %mend filter_mort;
 
 /* Step 2.0: Output a part of title data as a test set*/
@@ -161,6 +163,7 @@ run;
 %macro step2_1();
 data f.tmp2_1;
 set titleds.match_trans_mort_matchwide_all;
+FORMAT pin z13.;
 date 			=	date_doc_m1;
 mort_amt		=	amount_m1;
 trans_amt 		=	amount_prime;
@@ -174,17 +177,38 @@ run;
 2. mortgage or transaction amount is not null*/
 %macro step2_2(yr, qt);
 data f.tmp2_2;
-set f.tmp2_1;
+set f.tmp2_1(rename=(date=date1));
 if mort_amt ^= . and mort_amt ^= 0;
 if trans_amt ^= . and trans_amt ^= 0;
-year 	= year(date);
-month	= month(date);
-date1 	= put(date, yymmn6.);
+year 	= year(date1);
+month	= month(date1);
+date 	= put(date1, yymmn6.);
+drop date1;
 if year = &yr.;
 if (month <= &qt.*3 and month > &qt.*3-3);
 run;
 %mend step2_2;
-*if doc_type	= "MORTGAGE";
+
+/* Step 2.3: Filter out lender names*/
+%macro step2_3(yr, qt);
+data f.tmp2_3;
+set titleds.match_trans_mort_matchlong;
+FORMAT pin z13.;
+date1 	= date_doc;
+date 	= put(date1, yymmn6.);
+pin 	= pin1;
+year 	= year(date1);
+month	= month(date1);
+if year = &yr.;
+if (month <= &qt.*3 and month > &qt.*3-3);
+keep date pin year month lender1 lender2 lender3;
+run;
+%mend step2_3;
+
+/* Step 2.4: add lender names into dataset*/
+%macro step2_4;
+
+%mend step2_4;
 
 /***********************************/
 /* Step 3: Match GSE and TITLE data*/
