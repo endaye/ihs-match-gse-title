@@ -25,13 +25,14 @@ Mortgage and transaction data:	match_trans_mort_matchlong.sas7bdat
 /*   set macro var	*/
 %let macro_yr = 2012;
 %let macro_qt = Q1;	/* if for all year data, put 0 here */
+%let alpha = 0.05;
 *********************;
 
 /********************/
 /*   The main steps	*/
 %macro main(yr = &macro_yr, qt = substr("&macro_qt.",2,1));
 *%filter_gse(&yr., &qt.);
-%filter_mort(&yr., &qt.);
+*%filter_mort(&yr., &qt.);
 %match();
 %mend main;
 
@@ -39,9 +40,9 @@ Mortgage and transaction data:	match_trans_mort_matchlong.sas7bdat
 /* Step 1: Filter GSE dataset*/
 %macro filter_gse(yr, qt);
 *%test0_1(&yr);
-%step1_1(&yr);
-%step1_2();
-%step1_3(&yr., &qt.);
+*%step1_1(&yr);
+*%step1_2();
+*%step1_3(&yr., &qt.);
 %step1_4();
 %mend filter_gse; 
 
@@ -118,15 +119,19 @@ year 		= int(date / 100);
 month 		= mod(date, 100);
 if year = &yr.;
 if (month <= &qt.*3 and month > &qt.*3-3);
-drop year month;
+*drop year month;
 run;
 %mend step1_3;
 
-/* Step 1.4: Add Transaction Amount = Mortgage Amount / LTV */
+/* Step 1.4: 
+1. Remove no value mortgage or LTV
+2. Add Transaction Amount = Mortgage Amount / LTV */
 %macro step1_4();
 data 	f.tmp1_4;
 set 	f.tmp1_3;
-trans_amt 	= mort_amt / ltv;
+if mort_amt ^= 0 and mort_amt ^= .;
+if ltv ^= 0 and ltv ^= .;
+trans_amt 	= ceil(mort_amt / ltv * 100);
 run;
 %mend step1_4;
 
@@ -141,8 +146,11 @@ run;
 
 /* Step 2.0: Output a part of title data as a test set*/
 %macro step2_0();
-data f.tmp_title;
-set titleds.match_trans_mort_matchlong;
+data f.tmp_long;
+set titleds.match_trans_mort_matchlong (obs = 50);
+run;
+data f.tmp_wide;
+set titleds.match_trans_mort_matchwide_all (obs = 50);
 run;
 %mend step2_0;
 
@@ -152,45 +160,66 @@ run;
 3. pick out useful vars, drop others, reduce the file size.*/
 %macro step2_1();
 data f.tmp2_1;
-set titleds.match_trans_mort_matchlong;
-date 			=	date_rec;
-lender1 		=	lender1;
-lender2 		= 	lender2;
-lender3 		= 	lender3;	
-mort_amt		=	amount;
-loan_term		=	Mort_Term;
-trans_amt 		=	trans_seq;
-*loan_purpose	=	loan_purpose;
-prop_type		=	Property_Type_MortYear;
-keep date lender1 lender2 lender3 mort_amt loan_term trans_amt prop_type loan_purpose doc_type;
+set titleds.match_trans_mort_matchwide_all;
+date 			=	date_doc_m1;
+mort_amt		=	amount_m1;
+trans_amt 		=	amount_prime;
+pin				=	pin1;
+keep date mort_amt trans_amt pin;
 run;
 %mend step2_1;
 
-/* Step 2.2: Filter out certain year and quater obs */
+/* Step 2.2: Filter out certain data
+1. target year and quater obs 
+2. mortgage or transaction amount is not null*/
 %macro step2_2(yr, qt);
 data f.tmp2_2;
 set f.tmp2_1;
+if mort_amt ^= . and mort_amt ^= 0;
+if trans_amt ^= . and trans_amt ^= 0;
 year 	= year(date);
 month	= month(date);
-if year = 2012;
+date1 	= put(date, yymmn6.);
+if year = &yr.;
 if (month <= &qt.*3 and month > &qt.*3-3);
 run;
 %mend step2_2;
 *if doc_type	= "MORTGAGE";
 
+/***********************************/
+/* Step 3: Match GSE and TITLE data*/
 %macro match();
 %step3_1();
 %mend match;
 
+
+/* Step 3.1: Match based on 
+1. mortgage amount
+2. transaction amount
+3. month and year */
 %macro step3_1();
 PROC SQL;
 	CREATE TABLE F.tmp3_1 AS 
-		SELECT *
+		SELECT t1.mort_amt AS G_MORT_AMT,
+			t2.mort_amt AS T_MORT_AMT,
+			t1.trans_amt AS G_TRANS_AMT,
+			t2.trans_amt AS T_TRANS_AMT,
+			ABS(t1.trans_amt - t2.trans_amt) AS DIFF,
+			(ABS(t1.trans_amt - t2.trans_amt))/t1.trans_amt AS RATE,
+			t1.seller AS G_SELLER,
+			t1.year AS YEAR,
+			t1.month AS MONTH
 	FROM F.tmp1_4 t1
 		INNER JOIN F.tmp2_2 t2
-		ON t1.mort_amt = t2.mort_amt;
+		ON t1.mort_amt = t2.mort_amt
+		AND (ABS(t1.trans_amt - t2.trans_amt))/t1.trans_amt < &alpha.
+		AND t1.year = t2.year
+		AND t1.month = t2.month;
 QUIT;
 %mend step3_1;
+
+/* Step 3.2: Match on mortgage and transaction amount */
+
 
 /* Run */
 %main();
