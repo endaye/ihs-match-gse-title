@@ -3,7 +3,7 @@ Match Transaction & Mortgage Data
 Step 1:	Filter GSE fannie acuisition data
 Step 2:	Filter Title data
 Step 3:	Match GSE & Title 
-Step 4:	
+Step 4:	Show Result
 Date:	May 27, 2015
 Author:	Yuancheng Zhang
 Location:	/opt/data/PRJ/Match_GSE_Title/
@@ -31,36 +31,44 @@ Mortgage and transaction data:	match_trans_mort_matchlong.sas7bdat
 /********************/
 /*   The main steps	*/
 %macro main(yr = &macro_yr, qt = substr("&macro_qt.",2,1));
-*%filter_gse(&yr., &qt.);
-*%filter_mort(&yr., &qt.);
+%put ~~~~~ Start Running ~~~~~;
+%filter_gse(&yr., &qt.);
+%filter_mort(&yr., &qt.);
 %match();
+%result();
 %mend main;
 
 /*****************************/
 /* Step 1: Filter GSE dataset*/
 %macro filter_gse(yr, qt);
-*%test0_1(&yr);
-*%step1_1(&yr);
-*%step1_2();
-*%step1_3(&yr., &qt.);
+%put ~~~~~ Step 1: Filter GSE dataset ~~~~~;
+%test0_1(&yr);
+%step1_1(&yr);
+%step1_2();
+%step1_3(&yr., &qt.);
 %step1_4();
 %mend filter_gse; 
 
-/* Test 1: Output a part of GSE/TITLE data as test sets* */
+/* Test 1: Output a part of GSE/TITLE data as test sets */
 %macro test0_1(yr);
+%put ~~~~~ Test 1: Output a part of GSE/TITLE data as test sets ~~~~~;
 data f.test_gse;
 set gseds.fannie_acquisition&yr. (obs=500);
 run;
-data f.test_title;
+data f.test_long;
 set titleds.match_trans_mort_matchlong (obs=500);
+run;
+data f.test_wide;
+set titleds.match_trans_mort_matchwide_all (obs=500);
 run;
 %mend test0_1;
 
-/* Step 1.1: Input & Fomat
+/* Step 1.1: Input & Fomat GSE data
 1. import file;
 2. change var names for different years in a same format;
 3. pick out useful vars */
 %macro step1_1(yr);
+%put ~~~~~ Step 1.1: Input & Fomat GSE data ~~~~~;
 %if &yr = 2012 %then %do;
 data f.tmp1_1;
 set gseds.fannie_acquisition&yr.;
@@ -93,6 +101,7 @@ run;
 
 /* Step 1.2: Filter out Cook county & Single-family & Purchased obs */
 %macro step1_2();
+%put ~~~~~ Step 1.2: Filter out Cook county & Single-family & Purchased obs ~~~~~;
 PROC SQL;
 	CREATE TABLE F.tmp1_2 AS 
 		SELECT t.PROP_TYPE, 
@@ -112,6 +121,7 @@ QUIT;
 
 /* Step 1.3: Filter out certain year and quater obs */
 %macro step1_3(yr, qt);
+%put ~~~~~ Step 1.3: Filter out certain year and quater obs ~~~~~;
 data 	f.tmp1_3;
 set 	f.tmp1_2;
 prop_type 	= upcase(prop_type);
@@ -123,10 +133,11 @@ if (month <= &qt.*3 and month > &qt.*3-3);
 run;
 %mend step1_3;
 
-/* Step 1.4: 
+/* Step 1.4: turn out transaction amount
 1. Remove no value mortgage or LTV
 2. Add Transaction Amount = Mortgage Amount / LTV */
 %macro step1_4();
+%put ~~~~~ Step 1.4: turn out transaction amount ~~~~~;
 data 	f.tmp1_4;
 set 	f.tmp1_3;
 if mort_amt ^= 0 and mort_amt ^= .;
@@ -139,29 +150,32 @@ run;
 /********************************************************/
 /* Step 2: Filter Title dataset (mortgage + transaction)*/
 %macro filter_mort(yr, qt);
+%put ~~~~~ Step 2: Filter Title dataset (mortgage + transaction) ~~~~~;
 *%step2_0();
-*%step2_1();
-*%step2_2(&yr, &qt);
-*%step2_3(&yr, &qt);
+%step2_1();
+%step2_2(&yr, &qt);
+%step2_3(&yr, &qt);
 %step2_4();
 %step2_5();
 %mend filter_mort;
 
-/* Step 2.0: Output a part of title data as a test set*/
+/* Step 2.0: Output a part of title data as a test set */
 %macro step2_0();
-data f.tmp_long;
+%put ~~~~~ Step 2.0: Output a part of title data as a test set ~~~~~;
+data f.test_long;
 set titleds.match_trans_mort_matchlong (obs = 50);
 run;
-data f.tmp_wide;
+data f.test_wide;
 set titleds.match_trans_mort_matchwide_all (obs = 50);
 run;
 %mend step2_0;
 
-/* Step 2.1: Input & Fomat
+/* Step 2.1: Input & Fomat TITLE data
 1. import file;
 2. change var names for different years in a same format;
 3. pick out useful vars, drop others, reduce the file size.*/
 %macro step2_1();
+%put ~~~~~ Step 2.1: Input & Fomat TITLE data ~~~~~;
 data f.tmp2_1;
 set titleds.match_trans_mort_matchwide_all;
 FORMAT pin z14.;
@@ -177,6 +191,7 @@ run;
 1. target year and quater obs 
 2. mortgage or transaction amount is not null*/
 %macro step2_2(yr, qt);
+%put ~~~~~ Step 2.2: Filter out certain data ~~~~~;
 data f.tmp2_2;
 set f.tmp2_1(rename=(date=date1));
 if mort_amt ^= . and mort_amt ^= 0;
@@ -195,6 +210,7 @@ run;
 2. remove empty or blank leader name
 3. remove other useless varibles */
 %macro step2_3(yr, qt);
+%put ~~~~~ Step 2.3: Filter out lender names ~~~~~;
 data f.tmp2_3;
 set titleds.match_trans_mort_matchlong;
 FORMAT pin z14.;
@@ -212,6 +228,7 @@ run;
 
 /* Step 2.4: Add lender names into dataset*/
 %macro step2_4();
+%put ~~~~~ Step 2.4: Add lender names into dataset ~~~~~;
 PROC SQL;
 	CREATE TABLE F.tmp2_4 AS 
 		SELECT DISTINCT
@@ -235,6 +252,7 @@ QUIT;
 
 /* Step 2.5: test step2_4*/
 %macro step2_5();
+%put ~~~~~ Step 2.5: test step2_4 ~~~~~;
 PROC SQL;
 	CREATE TABLE F.tmp2_5 AS 
 		SELECT t.PIN AS PIN,
@@ -246,20 +264,23 @@ QUIT;
 %mend step2_5;
 
 /***********************************/
-/* Step 3: Match GSE and TITLE data*/
+/* Step 3: Match GSE and TITLE data */
 %macro match();
+%put ~~~~~ Step 3: Match GSE and TITLE data ~~~~~;
 %step3_1();
 %mend match;
-
 
 /* Step 3.1: Match based on 
 1. mortgage amount
 2. transaction amount
 3. month and year */
 %macro step3_1();
+%put ~~~~~ Step 3.1: Matching ~~~~~;
 PROC SQL;
 	CREATE TABLE F.tmp3_1 AS 
-		SELECT g.mort_amt AS G_MORT_AMT,
+		SELECT DISTINCT
+			t.pin AS PIN,
+			g.mort_amt AS G_MORT_AMT,
 			t.mort_amt AS T_MORT_AMT,
 			g.trans_amt AS G_TRANS_AMT,
 			t.trans_amt AS T_TRANS_AMT,
@@ -280,8 +301,33 @@ PROC SQL;
 QUIT;
 %mend step3_1;
 
-/* Step 3.2: Match on mortgage and transaction amount */
+/***********************************/
+/* Step 4: Show matching result */
+%macro result();
+%put ~~~~~ Step 4: Show matching result ~~~~~;
+%step4_1();
+%mend result;
+
+/* Step 4.1: Matching Result */
+%macro step4_1();
+%put ~~~~~ Step 4.1: Matching Result ~~~~~;
+data _NULL_;
+set f.tmp1_4;
+call symput("gno", strip(_N_));
+run;
+data _NULL_;
+set f.tmp2_5;
+call symput("tno", strip(_N_));
+run;
+data _NULL_;
+set f.tmp3_1;
+call symput("mno", strip(_N_));
+run;
+%put ~~~~~~~ GSE input Obs number: &gno. ~~~~~;
+%put ~~~~~ TITLE input Obs number: &tno. ~~~~~;
+%put ~~~~ match output Obs number: &tno. ~~~~~;
+%mend step4_1;
 
 
-/* Run */
+/* Run main()*/
 %main();
