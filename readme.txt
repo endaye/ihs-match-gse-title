@@ -1,13 +1,12 @@
-GSE data filter:
-month/year:		Orig_date
-seller name:	seller_name
-loan terms:		orig_laon_term
-LTV:			ltv
-loan purpose:	loan_purpose
-				P:	purchase
-				R:	refinance
-				C:	cash out
-property type:	prop_type
-				SF: only single-family loan
-Zip:			zipcode
-				only Cook county zip code
+Match Mortgage & Transaction Data in GSE and TITLE
+
+Step 1:	Filter GSE fannie acuisition data
+Step 2:	Filter Title data
+Step 3:	Match GSE & Title 
+Step 4:	Show Result
+
+Date:	May 27, 2015
+Author:	Yuancheng Zhang
+
+On server:	/opt/data/PRJ/Match_GSE_Title/
+Github:		github.com/vmvc2v/match-gse-title
