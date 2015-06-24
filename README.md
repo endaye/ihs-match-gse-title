@@ -4,10 +4,10 @@ Match GSE data with Title data(Transaction amount + Mortgage amount)
 
 ### Basic Info ###
 
-	*Author:*	Yuancheng Zhang
-	*Date:*		May 27, 2015
-	*On Server:*	/opt/data/PRJ/Match_GSE_Title/
-	*Github:*		github.com/vmvc2v/match-gse-title
+	Author:	Yuancheng Zhang
+	Date:		May 27, 2015
+	On Server:	/opt/data/PRJ/Match_GSE_Title/
+	Github:		github.com/vmvc2v/match-gse-title
 
 ### Step ###
 
