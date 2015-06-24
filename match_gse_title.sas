@@ -1,7 +1,7 @@
 /*************************************************************************
 Match Mortgage & Transaction Data in GSE and TITLE
 Step 1:	Filter GSE fannie acuisition data
-Step 2:	Filter Title data
+Step 2:	Filter Title dataset (mortgage + transaction)
 Step 3:	Match GSE & Title 
 Step 4:	Show Result
 Date:	May 27, 2015
@@ -40,9 +40,9 @@ Mortgage and transaction data:	match_trans_mort_matchlong.sas7bdat
 %mend main;
 
 /*****************************/
-/* Step 1: Filter GSE dataset*/
+/* Step 1: Filter GSE fannie acuisition dataset*/
 %macro filter_gse(yr, qt);
-%put ~~~~~ Step 1: Filter GSE dataset ~~~~~;
+%put ~~~~~ Step 1: Filter GSE fannie acuisition dataset ~~~~~;
 %test0_1(&yr);
 %step1_1(&yr);
 %step1_2();
@@ -134,11 +134,11 @@ if (month <= &qt.*3 and month > &qt.*3-3);
 run;
 %mend step1_3;
 
-/* Step 1.4: turn out transaction amount
+/* Step 1.4: Turn out transaction amount
 1. Remove no value mortgage or LTV
 2. Add Transaction Amount = Mortgage Amount / LTV */
 %macro step1_4();
-%put ~~~~~ Step 1.4: turn out transaction amount ~~~~~;
+%put ~~~~~ Step 1.4: Turn out transaction amount ~~~~~;
 data 	f.tmp1_4;
 set 	f.tmp1_3;
 if mort_amt ^= 0 and mort_amt ^= .;
