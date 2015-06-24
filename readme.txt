@@ -1,12 +1,26 @@
 Match Mortgage & Transaction Data in GSE and TITLE
 
-Step 1:	Filter GSE fannie acuisition data
-Step 2:	Filter Title data
-Step 3:	Match GSE & Title 
-Step 4:	Show Result
-
 Date:	May 27, 2015
 Author:	Yuancheng Zhang
 
 On server:	/opt/data/PRJ/Match_GSE_Title/
 Github:		github.com/vmvc2v/match-gse-title
+
+Step 1:	Filter GSE fannie acuisition dataset
+	Test 1: Output a part of GSE/TITLE data as test sets
+	Step 1.1: Input & Fomat GSE data
+	Step 1.2: Filter out Cook county & Single-family & Purchased obs
+	Step 1.3: Filter out certain year and quater obs
+	Step 1.4: Turn out transaction amount
+Step 2:	Filter Title dataset (mortgage + transaction)
+	Step 2.0: Output a part of title data as a test set
+	Step 2.1: Input & Fomat TITLE data
+	Step 2.2: Filter out certain data
+	Step 2.3: Filter out lender names
+	Step 2.4: Add lender names into dataset
+	Step 2.5: test step2_4
+Step 3:	Step 3: Match GSE and TITLE data 
+	Step 3.1: Matching
+Step 4:	Show matching result
+	Step 4.1: Show matching result
+
