@@ -32,8 +32,8 @@ Mortgage and transaction data:	match_trans_mort_matchlong.sas7bdat
 /*   The main steps	*/
 %macro main(yr = &macro_yr, qt = substr("&macro_qt.",2,1));
 *%filter_gse(&yr., &qt.);
-%filter_mort(&yr., &qt.);
-*%match();
+*%filter_mort(&yr., &qt.);
+%match();
 %mend main;
 
 /*****************************/
@@ -140,10 +140,11 @@ run;
 /* Step 2: Filter Title dataset (mortgage + transaction)*/
 %macro filter_mort(yr, qt);
 *%step2_0();
-%step2_1();
-%step2_2(&yr, &qt);
-%step2_3(&yr, &qt);
-*%step2_4();
+*%step2_1();
+*%step2_2(&yr, &qt);
+*%step2_3(&yr, &qt);
+%step2_4();
+%step2_5();
 %mend filter_mort;
 
 /* Step 2.0: Output a part of title data as a test set*/
@@ -163,7 +164,7 @@ run;
 %macro step2_1();
 data f.tmp2_1;
 set titleds.match_trans_mort_matchwide_all;
-FORMAT pin z13.;
+FORMAT pin z14.;
 date 			=	date_doc_m1;
 mort_amt		=	amount_m1;
 trans_amt 		=	amount_prime;
@@ -189,26 +190,60 @@ if (month <= &qt.*3 and month > &qt.*3-3);
 run;
 %mend step2_2;
 
-/* Step 2.3: Filter out lender names*/
+/* Step 2.3: Filter out lender names
+1. reduce the scrop of obs by date
+2. remove empty or blank leader name
+3. remove other useless varibles */
 %macro step2_3(yr, qt);
 data f.tmp2_3;
 set titleds.match_trans_mort_matchlong;
-FORMAT pin z13.;
+FORMAT pin z14.;
 date1 	= date_doc;
 date 	= put(date1, yymmn6.);
 pin 	= pin1;
 year 	= year(date1);
-month	= month(date1);
+month	= month(date1); 
 if year = &yr.;
 if (month <= &qt.*3 and month > &qt.*3-3);
+if length(lender1) > 1;
 keep date pin year month lender1 lender2 lender3;
 run;
 %mend step2_3;
 
-/* Step 2.4: add lender names into dataset*/
-%macro step2_4;
-
+/* Step 2.4: Add lender names into dataset*/
+%macro step2_4();
+PROC SQL;
+	CREATE TABLE F.tmp2_4 AS 
+		SELECT DISTINCT
+			wide.date AS DATE,
+			wide.mort_amt AS MORT_AMT,
+			wide.trans_amt AS TRANS_AMT,
+			wide.pin AS PIN,
+			long.lender1 AS LENDER1,
+			long.lender2 AS LENDER2,
+			long.lender3 AS LENDER3,
+			wide.year AS YEAR,
+			wide.month AS MONTH
+	FROM F.tmp2_2 wide
+		LEFT JOIN F.tmp2_3 long
+		ON wide.pin = long.pin
+		AND wide.year = long.year
+		AND wide.month = long.month
+	ORDER BY YEAR, MONTH, MORT_AMT;
+QUIT;
 %mend step2_4;
+
+/* Step 2.5: test step2_4*/
+%macro step2_5();
+PROC SQL;
+	CREATE TABLE F.tmp2_5 AS 
+		SELECT t.PIN AS PIN,
+			COUNT(t.PIN) AS COUNT
+	FROM F.tmp2_4 t
+	GROUP BY t.PIN
+	ORDER BY COUNT;
+QUIT;
+%mend step2_5;
 
 /***********************************/
 /* Step 3: Match GSE and TITLE data*/
@@ -224,21 +259,24 @@ run;
 %macro step3_1();
 PROC SQL;
 	CREATE TABLE F.tmp3_1 AS 
-		SELECT t1.mort_amt AS G_MORT_AMT,
-			t2.mort_amt AS T_MORT_AMT,
-			t1.trans_amt AS G_TRANS_AMT,
-			t2.trans_amt AS T_TRANS_AMT,
-			ABS(t1.trans_amt - t2.trans_amt) AS DIFF,
-			(ABS(t1.trans_amt - t2.trans_amt))/t1.trans_amt AS RATE,
-			t1.seller AS G_SELLER,
-			t1.year AS YEAR,
-			t1.month AS MONTH
-	FROM F.tmp1_4 t1
-		INNER JOIN F.tmp2_2 t2
-		ON t1.mort_amt = t2.mort_amt
-		AND (ABS(t1.trans_amt - t2.trans_amt))/t1.trans_amt < &alpha.
-		AND t1.year = t2.year
-		AND t1.month = t2.month;
+		SELECT g.mort_amt AS G_MORT_AMT,
+			t.mort_amt AS T_MORT_AMT,
+			g.trans_amt AS G_TRANS_AMT,
+			t.trans_amt AS T_TRANS_AMT,
+			ABS(g.trans_amt - t.trans_amt) AS DIFF,
+			(ABS(g.trans_amt - t.trans_amt))/g.trans_amt AS RATE,
+			g.seller AS G_SELLER,
+			t.lender1 AS T_LENDER1,
+			t.lender2 AS T_LENDER2,
+			t.lender3 AS T_LENDER3,
+			g.year AS YEAR,
+			g.month AS MONTH
+	FROM F.tmp1_4 g
+		INNER JOIN F.tmp2_4 t
+		ON g.mort_amt = t.mort_amt
+		AND (ABS(g.trans_amt - t.trans_amt))/g.trans_amt < &alpha.
+		AND g.year = t.year
+		AND g.month = t.month;
 QUIT;
 %mend step3_1;
 
